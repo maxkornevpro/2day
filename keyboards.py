@@ -58,6 +58,60 @@ def get_back_keyboard():
     ])
     return keyboard
 
+def get_admin_menu():
+    """Админ меню"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👤 Управление пользователями", callback_data="admin_users")],
+        [InlineKeyboardButton(text="💰 Выдать звезды", callback_data="admin_give_stars")],
+        [InlineKeyboardButton(text="🌾 Выдать ферму", callback_data="admin_give_farm")],
+        [InlineKeyboardButton(text="🎁 Выдать NFT", callback_data="admin_give_nft")],
+        [InlineKeyboardButton(text="🚫 Забанить", callback_data="admin_ban")],
+        [InlineKeyboardButton(text="✅ Разбанить", callback_data="admin_unban")],
+        [InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast")],
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")]
+    ])
+    return keyboard
+
+def get_casino_menu():
+    """Меню казино"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎲 Кости (x2)", callback_data="casino_dice")],
+        [InlineKeyboardButton(text="🎰 Слоты (x3)", callback_data="casino_slots")],
+        [InlineKeyboardButton(text="🎯 Рулетка (x5)", callback_data="casino_roulette")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+    ])
+    return keyboard
+
+def get_farm_select_keyboard():
+    """Клавиатура выбора фермы для админа"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    for farm_id, farm_data in FARM_TYPES.items():
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(
+                text=farm_data['name'],
+                callback_data=f"admin_farm_{farm_id}"
+            )
+        ])
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")
+    ])
+    return keyboard
+
+def get_nft_select_keyboard():
+    """Клавиатура выбора NFT для админа"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    for nft_id, nft_data in NFT_GIFTS.items():
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(
+                text=nft_data['name'],
+                callback_data=f"admin_nft_{nft_id}"
+            )
+        ])
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")
+    ])
+    return keyboard
+
 def get_auction_keyboard(auction_id: int, current_bid: int):
     """Клавиатура для аукциона"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
