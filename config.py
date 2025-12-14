@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8255377913:AAHAFPr1r5Hv1NH7qQ7xLByWuiwV_hyu6dc")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8255377913:AAFlkYfXZeqi-vxSbOLHAKmZ6qkZTaBDwrw")
 
 # Настройки игры
 GAME_NAME = "0DAY FARM EMPIRE"
@@ -144,4 +144,5 @@ FARM_TYPES = {
         "income_per_hour": 9000000
     }
 }
+
 
