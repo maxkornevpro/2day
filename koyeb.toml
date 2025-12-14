@@ -1,0 +1,7 @@
+[build]
+builder = "dockerfile"
+dockerfile = "Dockerfile"
+
+[run]
+command = ["python", "main.py"]
+
