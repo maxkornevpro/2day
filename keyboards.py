@@ -17,10 +17,9 @@ def get_farm_shop_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
     
     for farm_id, farm_data in FARM_TYPES.items():
-        income_per_min = round(farm_data['income_per_hour'] / 60, 2)
         keyboard.inline_keyboard.append([
             InlineKeyboardButton(
-                text=f"{farm_data['name']} - {farm_data['price']} ⭐ | {income_per_min}⭐/мин | {farm_data['income_per_hour']}⭐/час",
+                text=f"{farm_data['name']} ({farm_data['income_per_hour']} ⭐️/час)",
                 callback_data=f"buy_farm_{farm_id}"
             )
         ])
@@ -38,7 +37,7 @@ def get_nft_shop_keyboard():
         boost_text = f"+{int((nft_data['boost'] - 1) * 100)}%"
         keyboard.inline_keyboard.append([
             InlineKeyboardButton(
-                text=f"{nft_data['name']} - {nft_data['price']}⭐ | {boost_text}",
+                text=f"{nft_data['name']} ({boost_text})",
                 callback_data=f"buy_nft_{nft_id}"
             )
         ])
