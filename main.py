@@ -28,13 +28,33 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+from typing import Callable, Dict, Any, Awaitable
+from aiogram import BaseMiddleware
+from aiogram.types import TelegramObject
+
+class BanCheckMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any]
+    ) -> Any:
+        if isinstance(event, (Message, CallbackQuery)):
+            user_id = event.from_user.id
+            if await is_banned(user_id):
+                if isinstance(event, Message):
+                    await event.answer("❌ Вы заблокированы в боте!")
+                else:
+                    await event.answer("❌ Вы заблокированы в боте!", show_alert=True)
+                return
+        return await handler(event, data)
+
+dp.message.middleware(BanCheckMiddleware())
+dp.callback_query.middleware(BanCheckMiddleware())
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     user_id = message.from_user.id
-    
-    if await is_banned(user_id):
-        await message.answer("❌ Вы заблокированы в боте!")
-        return
     
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
@@ -998,9 +1018,6 @@ async def cmd_broadcast(message: Message):
 @dp.message(F.text == "🎰 Казино")
 async def show_casino(message: Message):
     user_id = message.from_user.id
-    if await is_banned(user_id):
-        return
-    
     stars = await get_user_stars(user_id)
     casino_text = (
         f"🎰 Казино\n\n"
@@ -1012,10 +1029,6 @@ async def show_casino(message: Message):
 @dp.callback_query(F.data == "casino_dice")
 async def casino_dice(callback: CallbackQuery):
     user_id = callback.from_user.id
-    if await is_banned(user_id):
-        await callback.answer("❌ Вы заблокированы!", show_alert=True)
-        return
-    
     await callback.message.edit_text(
         "🎲 Кости\n\n"
         "Ставка: удвоение\n\n"
@@ -1075,10 +1088,6 @@ async def cmd_dice(message: Message):
 @dp.callback_query(F.data == "casino_slots")
 async def casino_slots_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
-    if await is_banned(user_id):
-        await callback.answer("❌ Вы заблокированы!", show_alert=True)
-        return
-    
     await callback.message.edit_text(
         "🎰 Слоты\n\n"
         "Ставка: утроение\n\n"
@@ -1146,10 +1155,6 @@ async def cmd_slots(message: Message):
 @dp.callback_query(F.data == "casino_roulette")
 async def casino_roulette_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
-    if await is_banned(user_id):
-        await callback.answer("❌ Вы заблокированы!", show_alert=True)
-        return
-    
     await callback.message.edit_text(
         "🎯 Рулетка\n\n"
         "Ставка: учетверение\n\n"
