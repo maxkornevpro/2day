@@ -26,6 +26,16 @@ from keyboards import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+if not BOT_TOKEN or BOT_TOKEN == "8255377913:AAFlkYfXZeqi-vxSbOLHAKmZ6qkZTaBDwrw":
+    logger.error("BOT_TOKEN не установлен! Установите переменную окружения BOT_TOKEN")
+    raise ValueError("BOT_TOKEN не установлен")
+
+if len(BOT_TOKEN.split(":")) != 2:
+    logger.error("Неверный формат BOT_TOKEN! Должен быть в формате '123456789:ABCdefGHIjklMNOpqrsTUVwxyz'")
+    raise ValueError("Неверный формат BOT_TOKEN")
+
+logger.info(f"Токен бота загружен (длина: {len(BOT_TOKEN)})")
+
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
