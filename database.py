@@ -10,20 +10,20 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
-                internal_id INTEGER UNIQUE,
                 stars INTEGER DEFAULT 200,
                 last_collect TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_internal_id ON users(internal_id)
-        """)
-        
         try:
             await db.execute("ALTER TABLE users ADD COLUMN internal_id INTEGER")
             await db.commit()
+        except:
+            pass
+        
+        try:
+            await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_internal_id ON users(internal_id)")
         except:
             pass
         
