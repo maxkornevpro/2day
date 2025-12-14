@@ -3,85 +3,69 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8255377913:AAFlkYfXZeqi-vxSbOLHAKmZ6qkZTaBDwrw")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8255377913:AAHAFPr1r5Hv1NH7qQ7xLByWuiwV_hyu6dc")
 
-# Настройки игры
 GAME_NAME = "0DAY FARM EMPIRE"
-INITIAL_STARS = 200  # Начальное количество звезд
-FARM_BASE_PRICE = 50  # Базовая цена фермы
-FARM_BASE_INCOME = 5  # Базовый доход с фермы в час
+INITIAL_STARS = 200
+FARM_BASE_PRICE = 50
+FARM_BASE_INCOME = 5
 
-# Админы
-ADMIN_IDS = [5538590798, 891015442, 5253753886]
 
-# NFT подарки Telegram (их ID в Telegram)
 NFT_GIFTS = {
     "snoop_dogg": {
         "name": "🎤 Snoop Dogg",
         "price": 5000,
-        "boost": 1.5,  # +50% к доходу
-        "gift_id": "snoop_dogg"
+        "boost": 1.5,        "gift_id": "snoop_dogg"
     },
     "lunar_snake": {
         "name": "🐍 Lunar Snake",
         "price": 3500,
-        "boost": 1.3,  # +30% к доходу
-        "gift_id": "lunar_snake"
+        "boost": 1.3,        "gift_id": "lunar_snake"
     },
     "crystal_ball": {
         "name": "🔮 Crystal Ball",
         "price": 6000,
-        "boost": 1.6,  # +60% к доходу
-        "gift_id": "crystal_ball"
+        "boost": 1.6,        "gift_id": "crystal_ball"
     },
     "golden_coin": {
         "name": "🪙 Golden Coin",
         "price": 3000,
-        "boost": 1.25,  # +25% к доходу
-        "gift_id": "golden_coin"
+        "boost": 1.25,        "gift_id": "golden_coin"
     },
     "diamond_ring": {
         "name": "💍 Diamond Ring",
         "price": 10000,
-        "boost": 2.0,  # +100% к доходу
-        "gift_id": "diamond_ring"
+        "boost": 2.0,        "gift_id": "diamond_ring"
     },
     "magic_lamp": {
         "name": "🪔 Magic Lamp",
         "price": 7500,
-        "boost": 1.7,  # +70% к доходу
-        "gift_id": "magic_lamp"
+        "boost": 1.7,        "gift_id": "magic_lamp"
     },
     "fire_dragon": {
         "name": "🐉 Fire Dragon",
         "price": 12000,
-        "boost": 2.2,  # +120% к доходу
-        "gift_id": "fire_dragon"
+        "boost": 2.2,        "gift_id": "fire_dragon"
     },
     "cosmic_star": {
         "name": "⭐ Cosmic Star",
         "price": 8000,
-        "boost": 1.8,  # +80% к доходу
-        "gift_id": "cosmic_star"
+        "boost": 1.8,        "gift_id": "cosmic_star"
     },
     "golden_crown": {
         "name": "👑 Golden Crown",
         "price": 15000,
-        "boost": 2.5,  # +150% к доходу
-        "gift_id": "golden_crown"
+        "boost": 2.5,        "gift_id": "golden_crown"
     },
     "mystic_orb": {
         "name": "🔮 Mystic Orb",
         "price": 9000,
-        "boost": 1.9,  # +90% к доходу
-        "gift_id": "mystic_orb"
+        "boost": 1.9,        "gift_id": "mystic_orb"
     }
 }
 
-# Настройки реферальной системы
-REFERRAL_REWARD = 100  # Награда за регистрацию по реферальной ссылке
+REFERRAL_REWARD = 100
 
-# Типы ферм
 FARM_TYPES = {
     "starter": {
         "name": "🌱 Стартовая ферма",
@@ -144,5 +128,4 @@ FARM_TYPES = {
         "income_per_hour": 9000000
     }
 }
-
 

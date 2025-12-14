@@ -22,37 +22,30 @@ from keyboards import (
     get_admin_menu, get_casino_menu, get_farm_select_keyboard, get_nft_select_keyboard
 )
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
-    """Обработчик команды /start"""
     user_id = message.from_user.id
     
-    # Проверка на бан
     if await is_banned(user_id):
         await message.answer("❌ Вы заблокированы в боте!")
         return
     
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
-    # Проверяем реферальную ссылку
     is_new_user = False
     if args:
         try:
             referrer_id = int(args[0])
-            # Запрещаем переход по своей ссылке
             if referrer_id != user_id:
                 is_new_user = await register_referral(referrer_id, user_id)
                 if is_new_user:
                     await give_referral_reward(user_id)
-                    # Уведомляем реферера
                     try:
                         from config import REFERRAL_REWARD
                         referrer_name = message.from_user.full_name or f"@{message.from_user.username}" if message.from_user.username else "Пользователь"
@@ -82,7 +75,6 @@ async def cmd_start(message: Message):
     
     welcome_text += "Используйте меню для навигации или команду /help для списка команд!"
     
-    # В группах не показываем клавиатуру
     if message.chat.type == "private":
         await message.answer(welcome_text, reply_markup=get_main_menu())
     else:
@@ -90,7 +82,6 @@ async def cmd_start(message: Message):
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    """Обработчик команды /help"""
     help_text = (
         f"📖 Справка по командам {GAME_NAME}\n\n"
         "🔹 /start - Начать игру или зарегистрироваться\n"
@@ -117,16 +108,13 @@ async def cmd_help(message: Message):
 
 @dp.message(Command("profile"))
 async def cmd_profile(message: Message):
-    """Команда /profile"""
     await show_profile_handler(message)
 
 @dp.message(F.text == "⭐ Мой профиль")
 async def show_profile(message: Message):
-    """Показать профиль пользователя"""
     await show_profile_handler(message)
 
 async def show_profile_handler(message: Message):
-    """Обработчик показа профиля"""
     user_id = message.from_user.id
     user = await get_or_create_user(user_id)
     stars = user['stars']
@@ -136,7 +124,6 @@ async def show_profile_handler(message: Message):
     boost = await calculate_total_boost(user_id)
     referrals = await get_referral_count(user_id)
     
-    # Подсчитываем активные фермы
     from datetime import datetime
     active_farms = 0
     for farm in farms:
@@ -187,16 +174,13 @@ async def show_profile_handler(message: Message):
 
 @dp.message(Command("farms"))
 async def cmd_farms(message: Message):
-    """Команда /farms"""
     await show_farms_handler(message)
 
 @dp.message(F.text == "🌾 Мои фермы")
 async def show_farms(message: Message):
-    """Показать фермы пользователя"""
     await show_farms_handler(message)
 
 async def show_farms_handler(message: Message):
-    """Обработчик показа ферм"""
     user_id = message.from_user.id
     farms = await get_user_farms(user_id)
     
@@ -245,7 +229,7 @@ async def show_farms_handler(message: Message):
             active = data['active']
             inactive = total - active
             
-            income = farm_data['income_per_hour'] * active  # Только активные
+            income = farm_data['income_per_hour'] * active
             total_active_income += income
             total_income += farm_data['income_per_hour'] * total
             
@@ -277,28 +261,17 @@ async def show_farms_handler(message: Message):
 
 @dp.message(Command("shop"))
 async def cmd_shop(message: Message):
-    """Команда /shop"""
     await show_farm_shop_handler(message)
 
 @dp.message(F.text == "🛒 Магазин ферм")
 async def show_farm_shop(message: Message):
-    """Показать магазин ферм"""
     await show_farm_shop_handler(message)
 
 async def show_farm_shop_handler(message: Message):
-    """Обработчик магазина ферм"""
     user_id = message.from_user.id
     stars = await get_user_stars(user_id)
     
-    shop_text = f"🛒 Магазин ферм\n\n⭐ Ваши звезды: {stars}\n\n"
-    
-    for farm_id, farm_data in FARM_TYPES.items():
-        income_per_min = round(farm_data['income_per_hour'] / 60, 2)
-        shop_text += (
-            f"{farm_data['name']}\n"
-            f"💰 Цена: {farm_data['price']} ⭐\n"
-            f"📈 Доход: {income_per_min} ⭐/мин | {farm_data['income_per_hour']} ⭐/час\n\n"
-        )
+    shop_text = f"🛒 Магазин ферм\n\n⭐ Ваши звезды: {stars}\n\nВыберите ферму:"
     
     if message.chat.type == "private":
         await message.answer(shop_text, reply_markup=get_farm_shop_keyboard())
@@ -307,16 +280,13 @@ async def show_farm_shop_handler(message: Message):
 
 @dp.message(Command("nft"))
 async def cmd_nft(message: Message):
-    """Команда /nft"""
     await show_nft_shop_handler(message)
 
 @dp.message(F.text == "🎁 Магазин NFT")
 async def show_nft_shop(message: Message):
-    """Показать магазин NFT"""
     await show_nft_shop_handler(message)
 
 async def show_nft_shop_handler(message: Message):
-    """Обработчик магазина NFT"""
     user_id = message.from_user.id
     stars = await get_user_stars(user_id)
     
@@ -324,15 +294,8 @@ async def show_nft_shop_handler(message: Message):
         f"🎁 Магазин NFT подарков\n\n"
         f"⭐ Ваши звезды: {stars}\n\n"
         f"NFT дают буст к доходу с ферм!\n\n"
+        f"Выберите NFT:"
     )
-    
-    for nft_id, nft_data in NFT_GIFTS.items():
-        boost_text = f"+{int((nft_data['boost'] - 1) * 100)}%"
-        shop_text += (
-            f"{nft_data['name']}\n"
-            f"💰 Цена: {nft_data['price']} ⭐\n"
-            f"⚡ Буст: {boost_text}\n\n"
-        )
     
     if message.chat.type == "private":
         await message.answer(shop_text, reply_markup=get_nft_shop_keyboard())
@@ -341,7 +304,6 @@ async def show_nft_shop_handler(message: Message):
 
 @dp.message(Command("activate"))
 async def cmd_activate(message: Message):
-    """Команда /activate - активировать фермы"""
     user_id = message.from_user.id
     farms = await get_user_farms(user_id)
     
@@ -363,7 +325,6 @@ async def cmd_activate(message: Message):
         )
     else:
         from datetime import datetime
-        # Проверяем, когда можно будет активировать снова
         can_activate_soon = False
         min_hours_left = 6
         for farm in farms:
@@ -396,16 +357,13 @@ async def cmd_activate(message: Message):
 
 @dp.message(Command("collect"))
 async def cmd_collect(message: Message):
-    """Команда /collect"""
     await collect_income_handler(message)
 
 @dp.message(F.text == "💰 Собрать доход")
 async def collect_income(message: Message):
-    """Собрать доход с ферм"""
     await collect_income_handler(message)
 
 async def collect_income_handler(message: Message):
-    """Обработчик сбора дохода"""
     user_id = message.from_user.id
     farms = await get_user_farms(user_id)
     
@@ -421,7 +379,6 @@ async def collect_income_handler(message: Message):
     stars = await get_user_stars(user_id)
     boost = await calculate_total_boost(user_id)
     
-    # Рассчитываем текущий доход в минуту и час (только активные фермы)
     from datetime import datetime
     total_income_per_hour = 0
     active_farms_count = 0
@@ -481,7 +438,6 @@ async def collect_income_handler(message: Message):
 
 @dp.callback_query(F.data.startswith("buy_farm_"))
 async def handle_buy_farm(callback: CallbackQuery):
-    """Обработчик покупки фермы"""
     farm_id = callback.data.split("_")[2]
     
     if farm_id not in FARM_TYPES:
@@ -521,7 +477,6 @@ async def handle_buy_farm(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("buy_nft_"))
 async def handle_buy_nft(callback: CallbackQuery):
-    """Обработчик покупки NFT"""
     nft_id = callback.data.split("_")[2]
     
     if nft_id not in NFT_GIFTS:
@@ -568,16 +523,13 @@ async def handle_buy_nft(callback: CallbackQuery):
 
 @dp.message(Command("referral"))
 async def cmd_referral(message: Message):
-    """Команда /referral"""
     await show_referral_link_handler(message)
 
 @dp.message(F.text == "🔗 Реферальная ссылка")
 async def show_referral_link(message: Message):
-    """Показать реферальную ссылку"""
     await show_referral_link_handler(message)
 
 async def show_referral_link_handler(message: Message):
-    """Обработчик реферальной ссылки"""
     user_id = message.from_user.id
     referrals = await get_referral_count(user_id)
     
@@ -600,19 +552,15 @@ async def show_referral_link_handler(message: Message):
 
 @dp.message(Command("auction"))
 async def cmd_auction(message: Message):
-    """Команда /auction"""
     await show_auctions_handler(message)
 
 @dp.message(F.text == "🔨 Аукцион")
 async def show_auctions(message: Message):
-    """Показать активные аукционы"""
     await show_auctions_handler(message)
 
 async def show_auctions_handler(message: Message):
-    """Обработчик показа аукционов"""
     user_id = message.from_user.id
     
-    # Проверяем и завершаем истекшие аукционы
     from datetime import datetime
     active_auctions = await get_active_auctions()
     for auction in active_auctions:
@@ -623,14 +571,13 @@ async def show_auctions_handler(message: Message):
     auctions = await get_active_auctions()
     
     if not auctions:
-        # Создаем несколько аукционов, если их нет
         from random import choice
         
-        farm_types = list(FARM_TYPES.keys())[-4:]  # Последние 4 типа ферм
+        farm_types = list(FARM_TYPES.keys())[-4:]
         for i in range(3):
             farm_type = choice(farm_types)
             farm_data = FARM_TYPES[farm_type]
-            starting_price = farm_data['price'] // 2  # Начальная цена = половина обычной
+            starting_price = farm_data['price'] // 2
             await create_auction(farm_type, starting_price, 24)
         
         auctions = await get_active_auctions()
@@ -680,7 +627,6 @@ async def show_auctions_handler(message: Message):
 
 @dp.callback_query(F.data.startswith("auction_"))
 async def handle_auction_select(callback: CallbackQuery):
-    """Обработчик выбора аукциона"""
     auction_id = int(callback.data.split("_")[1])
     
     auctions = await get_active_auctions()
@@ -709,7 +655,6 @@ async def handle_auction_select(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("bid_"))
 async def handle_bid(callback: CallbackQuery):
-    """Обработчик ставки на аукционе"""
     parts = callback.data.split("_")
     auction_id = int(parts[1])
     bid_amount = int(parts[2])
@@ -719,7 +664,6 @@ async def handle_bid(callback: CallbackQuery):
     
     if success:
         await callback.answer(f"✅ {message_text}", show_alert=True)
-        # Обновляем информацию об аукционе
         auctions = await get_active_auctions()
         auction = next((a for a in auctions if a['id'] == auction_id), None)
         if auction:
@@ -745,14 +689,11 @@ async def handle_bid(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "back_to_main")
 async def handle_back(callback: CallbackQuery):
-    """Обработчик кнопки назад"""
     await callback.answer()
     await callback.message.delete()
 
-# Админ панель
 @dp.message(Command("admin"))
 async def cmd_admin(message: Message):
-    """Команда /admin"""
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("❌ У вас нет доступа к админ панели!")
         return
@@ -765,49 +706,49 @@ async def cmd_admin(message: Message):
 
 @dp.message(Command("ahelp"))
 async def cmd_ahelp(message: Message):
-    """Команда /ahelp - справка по админским командам"""
-    user_id = message.from_user.id
-    
-    # Проверка на админа
-    if user_id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет доступа к админ панели!")
-        return
-    
-    help_text = (
-        "🔐 Справка по админским командам\n\n"
-        "📋 Основные команды:\n"
-        "• /admin - Открыть админ панель с кнопками\n"
-        "• /ahelp - Показать эту справку\n\n"
-        "💰 Управление ресурсами:\n"
-        "• /give_stars user_id amount - Выдать звезды пользователю\n"
-        "  Пример: /give_stars 123456789 1000\n\n"
-        "• /give_farm farm_id user_id - Выдать ферму пользователю\n"
-        "  Пример: /give_farm starter 123456789\n"
-        "  Доступные типы: starter, basic, advanced, premium, elite, legendary, mythic, ultimate, quantum, cosmic, divine, infinity\n\n"
-        "• /give_nft nft_id user_id - Выдать NFT пользователю\n"
-        "  Пример: /give_nft snoop_dogg 123456789\n"
-        "  Доступные NFT: snoop_dogg, lunar_snake, crystal_ball, golden_coin, diamond_ring, magic_lamp, fire_dragon, cosmic_star, golden_crown, mystic_orb\n\n"
-        "🚫 Управление пользователями:\n"
-        "• /ban user_id [причина] - Забанить пользователя\n"
-        "  Пример: /ban 123456789 Нарушение правил\n"
-        "  Пример: /ban 123456789 (без причины)\n\n"
-        "• /unban user_id - Разбанить пользователя\n"
-        "  Пример: /unban 123456789\n\n"
-        "📢 Рассылка:\n"
-        "• /broadcast - Рассылка всем пользователям и чатам\n"
-        "  Использование: Ответьте на сообщение командой /broadcast\n"
-        "  Отправит текст сообщения всем пользователям и чатам\n\n"
-        "💡 Примечание: Все команды доступны только админам!"
-    )
-    
-    if message.chat.type == "private":
-        await message.answer(help_text)
-    else:
-        await message.reply(help_text)
+    try:
+        user_id = message.from_user.id
+        
+        if user_id not in ADMIN_IDS:
+            await message.answer("❌ У вас нет доступа к админ панели!")
+            return
+        
+        help_text = (
+            "🔐 Справка по админским командам\n\n"
+            "📋 Основные команды:\n"
+            "• /admin - Открыть админ панель с кнопками\n"
+            "• /ahelp - Показать эту справку\n\n"
+            "💰 Управление ресурсами:\n"
+            "• /give_stars user_id amount - Выдать звезды пользователю\n"
+            "  Пример: /give_stars 123456789 1000\n\n"
+            "• /give_farm farm_id user_id - Выдать ферму пользователю\n"
+            "  Пример: /give_farm starter 123456789\n"
+            "  Доступные типы: starter, basic, advanced, premium, elite, legendary, mythic, ultimate, quantum, cosmic, divine, infinity\n\n"
+            "• /give_nft nft_id user_id - Выдать NFT пользователю\n"
+            "  Пример: /give_nft snoop_dogg 123456789\n"
+            "  Доступные NFT: snoop_dogg, lunar_snake, crystal_ball, golden_coin, diamond_ring, magic_lamp, fire_dragon, cosmic_star, golden_crown, mystic_orb\n\n"
+            "🚫 Управление пользователями:\n"
+            "• /ban user_id [причина] - Забанить пользователя\n"
+            "  Пример: /ban 123456789 Нарушение правил\n"
+            "  Пример: /ban 123456789 (без причины)\n\n"
+            "• /unban user_id - Разбанить пользователя\n"
+            "  Пример: /unban 123456789\n\n"
+            "📢 Рассылка:\n"
+            "• /broadcast - Рассылка всем пользователям и чатам\n"
+            "  Использование: Ответьте на сообщение командой /broadcast\n"
+            "  Отправит текст сообщения всем пользователям и чатам\n\n"
+            "💡 Примечание: Все команды доступны только админам!"
+        )
+        
+        if message.chat.type == "private":
+            await message.answer(help_text)
+        else:
+            await message.reply(help_text)
+    except Exception as e:
+        logger.error(f"Ошибка в /ahelp: {e}")
 
 @dp.callback_query(F.data == "admin_help")
 async def admin_help_callback(callback: CallbackQuery):
-    """Показать справку через кнопку"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -845,7 +786,6 @@ async def admin_help_callback(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "admin_back")
 async def admin_back(callback: CallbackQuery):
-    """Вернуться в админ меню"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -853,7 +793,6 @@ async def admin_back(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "admin_give_stars")
 async def admin_give_stars_handler(callback: CallbackQuery):
-    """Админ: выдать звезды"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -869,7 +808,6 @@ async def admin_give_stars_handler(callback: CallbackQuery):
 
 @dp.message(Command("give_stars"))
 async def cmd_give_stars(message: Message):
-    """Выдать звезды пользователю"""
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -888,7 +826,6 @@ async def cmd_give_stars(message: Message):
 
 @dp.callback_query(F.data == "admin_give_farm")
 async def admin_give_farm_handler(callback: CallbackQuery):
-    """Админ: выдать ферму"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -900,7 +837,6 @@ async def admin_give_farm_handler(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("admin_farm_"))
 async def admin_give_farm_select(callback: CallbackQuery):
-    """Админ: выбор фермы"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -918,7 +854,6 @@ async def admin_give_farm_select(callback: CallbackQuery):
 
 @dp.message(Command("give_farm"))
 async def cmd_give_farm(message: Message):
-    """Выдать ферму пользователю"""
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -940,7 +875,6 @@ async def cmd_give_farm(message: Message):
 
 @dp.callback_query(F.data == "admin_give_nft")
 async def admin_give_nft_handler(callback: CallbackQuery):
-    """Админ: выдать NFT"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -952,7 +886,6 @@ async def admin_give_nft_handler(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("admin_nft_"))
 async def admin_give_nft_select(callback: CallbackQuery):
-    """Админ: выбор NFT"""
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Нет доступа!", show_alert=True)
         return
@@ -970,7 +903,6 @@ async def admin_give_nft_select(callback: CallbackQuery):
 
 @dp.message(Command("give_nft"))
 async def cmd_give_nft(message: Message):
-    """Выдать NFT пользователю"""
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -992,7 +924,6 @@ async def cmd_give_nft(message: Message):
 
 @dp.message(Command("ban"))
 async def cmd_ban(message: Message):
-    """Забанить пользователя"""
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -1011,7 +942,6 @@ async def cmd_ban(message: Message):
 
 @dp.message(Command("unban"))
 async def cmd_unban(message: Message):
-    """Разбанить пользователя"""
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -1029,7 +959,6 @@ async def cmd_unban(message: Message):
 
 @dp.message(Command("broadcast"))
 async def cmd_broadcast(message: Message):
-    """Рассылка всем пользователям"""
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -1050,7 +979,6 @@ async def cmd_broadcast(message: Message):
     
     await message.reply(f"📢 Начинаю рассылку...\nПользователей: {len(users)}\nЧатов: {len(chats)}")
     
-    # Рассылка пользователям
     for user in users:
         try:
             await bot.send_message(user['user_id'], text)
@@ -1058,7 +986,6 @@ async def cmd_broadcast(message: Message):
         except:
             failed += 1
     
-    # Рассылка в чаты
     for chat in chats:
         try:
             await bot.send_message(chat['chat_id'], text)
@@ -1068,10 +995,8 @@ async def cmd_broadcast(message: Message):
     
     await message.reply(f"✅ Рассылка завершена!\nОтправлено: {sent}\nОшибок: {failed}")
 
-# Казино
 @dp.message(F.text == "🎰 Казино")
 async def show_casino(message: Message):
-    """Показать казино"""
     user_id = message.from_user.id
     if await is_banned(user_id):
         return
@@ -1086,7 +1011,6 @@ async def show_casino(message: Message):
 
 @dp.callback_query(F.data == "casino_dice")
 async def casino_dice(callback: CallbackQuery):
-    """Игра в кости"""
     user_id = callback.from_user.id
     if await is_banned(user_id):
         await callback.answer("❌ Вы заблокированы!", show_alert=True)
@@ -1104,7 +1028,6 @@ async def casino_dice(callback: CallbackQuery):
 
 @dp.message(Command("dice"))
 async def cmd_dice(message: Message):
-    """Игра в кости"""
     user_id = message.from_user.id
     if await is_banned(user_id):
         return
@@ -1151,7 +1074,6 @@ async def cmd_dice(message: Message):
 
 @dp.callback_query(F.data == "casino_slots")
 async def casino_slots_handler(callback: CallbackQuery):
-    """Игра в слоты"""
     user_id = callback.from_user.id
     if await is_banned(user_id):
         await callback.answer("❌ Вы заблокированы!", show_alert=True)
@@ -1169,7 +1091,6 @@ async def casino_slots_handler(callback: CallbackQuery):
 
 @dp.message(Command("slots"))
 async def cmd_slots(message: Message):
-    """Игра в слоты"""
     user_id = message.from_user.id
     if await is_banned(user_id):
         return
@@ -1224,7 +1145,6 @@ async def cmd_slots(message: Message):
 
 @dp.callback_query(F.data == "casino_roulette")
 async def casino_roulette_handler(callback: CallbackQuery):
-    """Игра в рулетку"""
     user_id = callback.from_user.id
     if await is_banned(user_id):
         await callback.answer("❌ Вы заблокированы!", show_alert=True)
@@ -1242,7 +1162,6 @@ async def casino_roulette_handler(callback: CallbackQuery):
 
 @dp.message(Command("roulette"))
 async def cmd_roulette(message: Message):
-    """Игра в рулетку"""
     user_id = message.from_user.id
     if await is_banned(user_id):
         return
@@ -1289,10 +1208,8 @@ async def cmd_roulette(message: Message):
     except ValueError:
         await message.reply("❌ Неверный формат!")
 
-# Приветствие при добавлении в чат
 @dp.message(F.new_chat_members)
 async def on_new_member(message: Message):
-    """Обработчик добавления бота в чат"""
     for member in message.new_chat_members:
         if member.id == bot.id:
             await add_chat(message.chat.id, message.chat.type, message.chat.title)
@@ -1308,11 +1225,9 @@ async def on_new_member(message: Message):
             await message.reply(welcome_text)
 
 async def health_check(request):
-    """Health check endpoint для предотвращения засыпания"""
     return web.Response(text="OK")
 
 async def start_http_server():
-    """Запуск HTTP сервера для health check"""
     app = web.Application()
     app.router.add_get('/', health_check)
     app.router.add_get('/health', health_check)
@@ -1324,18 +1239,14 @@ async def start_http_server():
     return runner
 
 async def main():
-    """Главная функция"""
     import os
     
-    # Инициализация базы данных
     await init_db()
     logger.info("База данных инициализирована")
     
-    # Запуск HTTP сервера для health check (чтобы бот не засыпал на Render)
     http_runner = await start_http_server()
     
     try:
-        # Запуск бота
         logger.info("Бот запущен")
         await dp.start_polling(bot)
     finally:
