@@ -10,11 +10,35 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
+                internal_id INTEGER UNIQUE,
                 stars INTEGER DEFAULT 200,
                 last_collect TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_internal_id ON users(internal_id)
+        """)
+        
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN internal_id INTEGER")
+            await db.commit()
+        except:
+            pass
+        
+        cursor = await db.execute("SELECT COUNT(*) FROM users WHERE internal_id IS NULL")
+        null_count = (await cursor.fetchone())[0]
+        if null_count > 0:
+            cursor = await db.execute("SELECT user_id FROM users WHERE internal_id IS NULL ORDER BY created_at")
+            users = await cursor.fetchall()
+            for idx, (user_id,) in enumerate(users, start=1):
+                cursor = await db.execute("SELECT MAX(internal_id) FROM users WHERE internal_id IS NOT NULL")
+                result = await cursor.fetchone()
+                max_id = result[0] if result[0] is not None else 0
+                new_id = max_id + idx
+                await db.execute("UPDATE users SET internal_id = ? WHERE user_id = ?", (new_id, user_id))
+            await db.commit()
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS farms (
@@ -85,6 +109,13 @@ async def init_db():
         
         await db.commit()
 
+async def get_next_internal_id() -> int:
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute("SELECT MAX(internal_id) FROM users WHERE internal_id IS NOT NULL")
+        result = await cursor.fetchone()
+        max_id = result[0] if result[0] is not None else 0
+        return max_id + 1
+
 async def get_or_create_user(user_id: int) -> Dict:
     async with aiosqlite.connect(DB_NAME) as db:
         db.row_factory = aiosqlite.Row
@@ -95,9 +126,22 @@ async def get_or_create_user(user_id: int) -> Dict:
         user = await cursor.fetchone()
         
         if not user:
+            internal_id = await get_next_internal_id()
             await db.execute(
-                "INSERT INTO users (user_id, stars, last_collect) VALUES (?, ?, ?)",
-                (user_id, 200, datetime.now().isoformat())
+                "INSERT INTO users (user_id, internal_id, stars, last_collect) VALUES (?, ?, ?, ?)",
+                (user_id, internal_id, 200, datetime.now().isoformat())
+            )
+            await db.commit()
+            cursor = await db.execute(
+                "SELECT * FROM users WHERE user_id = ?",
+                (user_id,)
+            )
+            user = await cursor.fetchone()
+        elif user['internal_id'] is None:
+            internal_id = await get_next_internal_id()
+            await db.execute(
+                "UPDATE users SET internal_id = ? WHERE user_id = ?",
+                (internal_id, user_id)
             )
             await db.commit()
             cursor = await db.execute(
@@ -454,12 +498,16 @@ async def end_auction(auction_id: int) -> Optional[Dict]:
         return auction_dict
 
 async def is_banned(user_id: int) -> bool:
-    async with aiosqlite.connect(DB_NAME) as db:
-        cursor = await db.execute(
-            "SELECT * FROM bans WHERE user_id = ?",
-            (user_id,)
-        )
-        return cursor.fetchone() is not None
+    try:
+        async with aiosqlite.connect(DB_NAME) as db:
+            cursor = await db.execute(
+                "SELECT 1 FROM bans WHERE user_id = ?",
+                (user_id,)
+            )
+            result = await cursor.fetchone()
+            return result is not None
+    except Exception as e:
+        return False
 
 async def ban_user(user_id: int, reason: str, admin_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
@@ -517,4 +565,31 @@ async def add_chat(chat_id: int, chat_type: str, title: str = None):
             (chat_id, chat_type, title)
         )
         await db.commit()
+
+async def get_next_internal_id() -> int:
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute("SELECT MAX(internal_id) FROM users WHERE internal_id IS NOT NULL")
+        result = await cursor.fetchone()
+        max_id = result[0] if result[0] is not None else 0
+        return max_id + 1
+
+async def get_user_by_internal_id(internal_id: int) -> Optional[Dict]:
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM users WHERE internal_id = ?",
+            (internal_id,)
+        )
+        user = await cursor.fetchone()
+        return dict(user) if user else None
+
+async def get_user_info_by_internal_id(internal_id: int) -> Optional[Dict]:
+    user = await get_user_by_internal_id(internal_id)
+    if user:
+        return {
+            'user_id': user['user_id'],
+            'internal_id': user['internal_id'],
+            'stars': user['stars']
+        }
+    return None
 

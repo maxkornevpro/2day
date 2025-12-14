@@ -14,7 +14,8 @@ from database import (
     create_auction, get_active_auctions, place_bid, end_auction,
     activate_farms, is_banned, ban_user, unban_user,
     admin_add_stars, admin_add_farm, admin_add_nft,
-    get_all_users, get_all_chats, add_chat, spend_stars, add_stars
+    get_all_users, get_all_chats, add_chat, spend_stars, add_stars,
+    get_user_by_internal_id, get_user_info_by_internal_id
 )
 from keyboards import (
     get_main_menu, get_farm_shop_keyboard, 
@@ -28,29 +29,24 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-from typing import Callable, Dict, Any, Awaitable
-from aiogram import BaseMiddleware
-from aiogram.types import TelegramObject
-
-class BanCheckMiddleware(BaseMiddleware):
-    async def __call__(
-        self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-        event: TelegramObject,
-        data: Dict[str, Any]
-    ) -> Any:
-        if isinstance(event, (Message, CallbackQuery)):
+async def ban_check_middleware(handler, event, data):
+    if isinstance(event, (Message, CallbackQuery)):
+        if hasattr(event, 'from_user') and event.from_user:
             user_id = event.from_user.id
-            if await is_banned(user_id):
-                if isinstance(event, Message):
-                    await event.answer("❌ Вы заблокированы в боте!")
-                else:
-                    await event.answer("❌ Вы заблокированы в боте!", show_alert=True)
-                return
-        return await handler(event, data)
+            try:
+                banned = await is_banned(user_id)
+                if banned:
+                    if isinstance(event, Message):
+                        await event.answer("❌ Вы заблокированы в боте!")
+                    elif isinstance(event, CallbackQuery):
+                        await event.answer("❌ Вы заблокированы в боте!", show_alert=True)
+                    return
+            except Exception as db_error:
+                logger.error(f"Ошибка проверки бана для user_id {user_id}: {db_error}")
+    return await handler(event, data)
 
-dp.message.middleware(BanCheckMiddleware())
-dp.callback_query.middleware(BanCheckMiddleware())
+dp.message.middleware(ban_check_middleware)
+dp.callback_query.middleware(ban_check_middleware)
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
@@ -134,6 +130,63 @@ async def cmd_profile(message: Message):
 async def show_profile(message: Message):
     await show_profile_handler(message)
 
+@dp.message(Command("profile_id"))
+async def cmd_profile_id(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = message.text.split()
+    if len(args) < 2:
+        await message.reply("Использование: /profile_id internal_id\nПример: /profile_id 1")
+        return
+    
+    try:
+        internal_id = int(args[1])
+        user = await get_user_by_internal_id(internal_id)
+        if not user:
+            await message.reply(f"❌ Пользователь с ID {internal_id} не найден!")
+            return
+        
+        user_id = user['user_id']
+        stars = user['stars']
+        farms = await get_user_farms(user_id)
+        nfts = await get_user_nfts(user_id)
+        boost = await calculate_total_boost(user_id)
+        referrals = await get_referral_count(user_id)
+        
+        from datetime import datetime
+        active_farms = 0
+        for farm in farms:
+            is_active = farm.get('is_active', 0)
+            if is_active:
+                last_activated = farm.get('last_activated')
+                if last_activated:
+                    last_activated_dt = datetime.fromisoformat(last_activated)
+                    hours_passed = (datetime.now() - last_activated_dt).total_seconds() / 3600
+                    if hours_passed < 6:
+                        active_farms += 1
+        
+        try:
+            tg_user = await bot.get_chat(user_id)
+            username = f"@{tg_user.username}" if tg_user.username else tg_user.full_name or "Неизвестно"
+        except:
+            username = "Неизвестно"
+        
+        profile_text = (
+            f"👤 Профиль пользователя\n\n"
+            f"🆔 ID: {internal_id}\n"
+            f"📱 Telegram: {username} ({user_id})\n"
+            f"⭐ Звезд: {stars}\n"
+            f"🌾 Ферм: {len(farms)} (активных: {active_farms})\n"
+            f"🎁 NFT: {len(nfts)}\n"
+            f"⚡ Буст к доходу: {int((boost - 1) * 100)}%\n"
+            f"🔗 Рефералов: {referrals}\n"
+        )
+        
+        await message.reply(profile_text)
+    except ValueError:
+        await message.reply("❌ Неверный формат! Используйте: /profile_id internal_id")
+
 async def show_profile_handler(message: Message):
     user_id = message.from_user.id
     user = await get_or_create_user(user_id)
@@ -156,8 +209,10 @@ async def show_profile_handler(message: Message):
                 if hours_passed < 6:
                     active_farms += 1
     
+    internal_id = user.get('internal_id', 'N/A')
     profile_text = (
         f"👤 Ваш профиль\n\n"
+        f"🆔 ID: {internal_id}\n"
         f"⭐ Звезд: {stars}\n"
         f"🌾 Ферм: {len(farms)} (активных: {active_farms})\n"
         f"🎁 NFT: {len(nfts)}\n"
@@ -739,20 +794,23 @@ async def cmd_ahelp(message: Message):
             "• /admin - Открыть админ панель с кнопками\n"
             "• /ahelp - Показать эту справку\n\n"
             "💰 Управление ресурсами:\n"
-            "• /give_stars user_id amount - Выдать звезды пользователю\n"
-            "  Пример: /give_stars 123456789 1000\n\n"
-            "• /give_farm farm_id user_id - Выдать ферму пользователю\n"
-            "  Пример: /give_farm starter 123456789\n"
+            "• /give_stars internal_id amount - Выдать звезды пользователю\n"
+            "  Пример: /give_stars 1 1000\n\n"
+            "• /give_farm farm_id internal_id - Выдать ферму пользователю\n"
+            "  Пример: /give_farm starter 1\n"
             "  Доступные типы: starter, basic, advanced, premium, elite, legendary, mythic, ultimate, quantum, cosmic, divine, infinity\n\n"
-            "• /give_nft nft_id user_id - Выдать NFT пользователю\n"
-            "  Пример: /give_nft snoop_dogg 123456789\n"
+            "• /give_nft nft_id internal_id - Выдать NFT пользователю\n"
+            "  Пример: /give_nft snoop_dogg 1\n"
             "  Доступные NFT: snoop_dogg, lunar_snake, crystal_ball, golden_coin, diamond_ring, magic_lamp, fire_dragon, cosmic_star, golden_crown, mystic_orb\n\n"
             "🚫 Управление пользователями:\n"
-            "• /ban user_id [причина] - Забанить пользователя\n"
-            "  Пример: /ban 123456789 Нарушение правил\n"
-            "  Пример: /ban 123456789 (без причины)\n\n"
-            "• /unban user_id - Разбанить пользователя\n"
-            "  Пример: /unban 123456789\n\n"
+            "• /ban internal_id [причина] - Забанить пользователя\n"
+            "  Пример: /ban 1 Нарушение правил\n"
+            "  Пример: /ban 1 (без причины)\n\n"
+            "• /unban internal_id - Разбанить пользователя\n"
+            "  Пример: /unban 1\n\n"
+            "👤 Просмотр профиля:\n"
+            "• /profile_id internal_id - Показать профиль пользователя\n"
+            "  Пример: /profile_id 1\n\n"
             "📢 Рассылка:\n"
             "• /broadcast - Рассылка всем пользователям и чатам\n"
             "  Использование: Ответьте на сообщение командой /broadcast\n"
@@ -833,16 +891,21 @@ async def cmd_give_stars(message: Message):
     
     args = message.text.split()
     if len(args) < 3:
-        await message.reply("Использование: /give_stars user_id amount")
+        await message.reply("Использование: /give_stars internal_id amount\nПример: /give_stars 1 1000")
         return
     
     try:
-        user_id = int(args[1])
+        internal_id = int(args[1])
         amount = int(args[2])
+        user = await get_user_by_internal_id(internal_id)
+        if not user:
+            await message.reply(f"❌ Пользователь с ID {internal_id} не найден!")
+            return
+        user_id = user['user_id']
         await admin_add_stars(user_id, amount)
-        await message.reply(f"✅ Пользователю {user_id} выдано {amount} ⭐")
+        await message.reply(f"✅ Пользователю ID {internal_id} (TG: {user_id}) выдано {amount} ⭐")
     except ValueError:
-        await message.reply("❌ Неверный формат!")
+        await message.reply("❌ Неверный формат! Используйте: /give_stars internal_id amount")
 
 @dp.callback_query(F.data == "admin_give_farm")
 async def admin_give_farm_handler(callback: CallbackQuery):
@@ -879,19 +942,24 @@ async def cmd_give_farm(message: Message):
     
     args = message.text.split()
     if len(args) < 3:
-        await message.reply("Использование: /give_farm farm_id user_id")
+        await message.reply("Использование: /give_farm farm_id internal_id\nПример: /give_farm starter 1")
         return
     
     try:
         farm_id = args[1]
-        user_id = int(args[2])
+        internal_id = int(args[2])
+        user = await get_user_by_internal_id(internal_id)
+        if not user:
+            await message.reply(f"❌ Пользователь с ID {internal_id} не найден!")
+            return
+        user_id = user['user_id']
         if farm_id not in FARM_TYPES:
             await message.reply("❌ Неверный тип фермы!")
             return
         await admin_add_farm(user_id, farm_id)
-        await message.reply(f"✅ Пользователю {user_id} выдана {FARM_TYPES[farm_id]['name']}")
+        await message.reply(f"✅ Пользователю ID {internal_id} (TG: {user_id}) выдана {FARM_TYPES[farm_id]['name']}")
     except ValueError:
-        await message.reply("❌ Неверный формат!")
+        await message.reply("❌ Неверный формат! Используйте: /give_farm farm_id internal_id")
 
 @dp.callback_query(F.data == "admin_give_nft")
 async def admin_give_nft_handler(callback: CallbackQuery):
@@ -928,19 +996,24 @@ async def cmd_give_nft(message: Message):
     
     args = message.text.split()
     if len(args) < 3:
-        await message.reply("Использование: /give_nft nft_id user_id")
+        await message.reply("Использование: /give_nft nft_id internal_id\nПример: /give_nft snoop_dogg 1")
         return
     
     try:
         nft_id = args[1]
-        user_id = int(args[2])
+        internal_id = int(args[2])
+        user = await get_user_by_internal_id(internal_id)
+        if not user:
+            await message.reply(f"❌ Пользователь с ID {internal_id} не найден!")
+            return
+        user_id = user['user_id']
         if nft_id not in NFT_GIFTS:
             await message.reply("❌ Неверный тип NFT!")
             return
         await admin_add_nft(user_id, nft_id)
-        await message.reply(f"✅ Пользователю {user_id} выдано {NFT_GIFTS[nft_id]['name']}")
+        await message.reply(f"✅ Пользователю ID {internal_id} (TG: {user_id}) выдано {NFT_GIFTS[nft_id]['name']}")
     except ValueError:
-        await message.reply("❌ Неверный формат!")
+        await message.reply("❌ Неверный формат! Используйте: /give_nft nft_id internal_id")
 
 @dp.message(Command("ban"))
 async def cmd_ban(message: Message):
@@ -949,16 +1022,21 @@ async def cmd_ban(message: Message):
     
     args = message.text.split(maxsplit=2)
     if len(args) < 2:
-        await message.reply("Использование: /ban user_id [причина]")
+        await message.reply("Использование: /ban internal_id [причина]\nПример: /ban 1 Нарушение правил")
         return
     
     try:
-        user_id = int(args[1])
+        internal_id = int(args[1])
         reason = args[2] if len(args) > 2 else "Нарушение правил"
+        user = await get_user_by_internal_id(internal_id)
+        if not user:
+            await message.reply(f"❌ Пользователь с ID {internal_id} не найден!")
+            return
+        user_id = user['user_id']
         await ban_user(user_id, reason, message.from_user.id)
-        await message.reply(f"✅ Пользователь {user_id} забанен. Причина: {reason}")
+        await message.reply(f"✅ Пользователь ID {internal_id} (TG: {user_id}) забанен. Причина: {reason}")
     except ValueError:
-        await message.reply("❌ Неверный формат!")
+        await message.reply("❌ Неверный формат! Используйте: /ban internal_id [причина]")
 
 @dp.message(Command("unban"))
 async def cmd_unban(message: Message):
@@ -967,15 +1045,20 @@ async def cmd_unban(message: Message):
     
     args = message.text.split()
     if len(args) < 2:
-        await message.reply("Использование: /unban user_id")
+        await message.reply("Использование: /unban internal_id\nПример: /unban 1")
         return
     
     try:
-        user_id = int(args[1])
+        internal_id = int(args[1])
+        user = await get_user_by_internal_id(internal_id)
+        if not user:
+            await message.reply(f"❌ Пользователь с ID {internal_id} не найден!")
+            return
+        user_id = user['user_id']
         await unban_user(user_id)
-        await message.reply(f"✅ Пользователь {user_id} разбанен")
+        await message.reply(f"✅ Пользователь ID {internal_id} (TG: {user_id}) разбанен")
     except ValueError:
-        await message.reply("❌ Неверный формат!")
+        await message.reply("❌ Неверный формат! Используйте: /unban internal_id")
 
 @dp.message(Command("broadcast"))
 async def cmd_broadcast(message: Message):
