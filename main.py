@@ -766,7 +766,10 @@ async def cmd_admin(message: Message):
 @dp.message(Command("ahelp"))
 async def cmd_ahelp(message: Message):
     """Команда /ahelp - справка по админским командам"""
-    if message.from_user.id not in ADMIN_IDS:
+    user_id = message.from_user.id
+    
+    # Проверка на админа
+    if user_id not in ADMIN_IDS:
         await message.answer("❌ У вас нет доступа к админ панели!")
         return
     
@@ -801,6 +804,44 @@ async def cmd_ahelp(message: Message):
         await message.answer(help_text)
     else:
         await message.reply(help_text)
+
+@dp.callback_query(F.data == "admin_help")
+async def admin_help_callback(callback: CallbackQuery):
+    """Показать справку через кнопку"""
+    if callback.from_user.id not in ADMIN_IDS:
+        await callback.answer("❌ Нет доступа!", show_alert=True)
+        return
+    
+    help_text = (
+        "🔐 Справка по админским командам\n\n"
+        "📋 Основные команды:\n"
+        "• /admin - Открыть админ панель с кнопками\n"
+        "• /ahelp - Показать эту справку\n\n"
+        "💰 Управление ресурсами:\n"
+        "• /give_stars user_id amount - Выдать звезды пользователю\n"
+        "  Пример: /give_stars 123456789 1000\n\n"
+        "• /give_farm farm_id user_id - Выдать ферму пользователю\n"
+        "  Пример: /give_farm starter 123456789\n"
+        "  Доступные типы: starter, basic, advanced, premium, elite, legendary, mythic, ultimate, quantum, cosmic, divine, infinity\n\n"
+        "• /give_nft nft_id user_id - Выдать NFT пользователю\n"
+        "  Пример: /give_nft snoop_dogg 123456789\n"
+        "  Доступные NFT: snoop_dogg, lunar_snake, crystal_ball, golden_coin, diamond_ring, magic_lamp, fire_dragon, cosmic_star, golden_crown, mystic_orb\n\n"
+        "🚫 Управление пользователями:\n"
+        "• /ban user_id [причина] - Забанить пользователя\n"
+        "  Пример: /ban 123456789 Нарушение правил\n"
+        "  Пример: /ban 123456789 (без причины)\n\n"
+        "• /unban user_id - Разбанить пользователя\n"
+        "  Пример: /unban 123456789\n\n"
+        "📢 Рассылка:\n"
+        "• /broadcast - Рассылка всем пользователям и чатам\n"
+        "  Использование: Ответьте на сообщение командой /broadcast\n"
+        "  Отправит текст сообщения всем пользователям и чатам\n\n"
+        "💡 Примечание: Все команды доступны только админам!"
+    )
+    
+    await callback.message.edit_text(help_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")]
+    ]))
 
 @dp.callback_query(F.data == "admin_back")
 async def admin_back(callback: CallbackQuery):

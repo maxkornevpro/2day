@@ -58,9 +58,35 @@ def get_back_keyboard():
     ])
     return keyboard
 
+def get_auction_keyboard(auction_id: int, current_bid: int):
+    """Клавиатура для аукциона"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text=f"💰 Ставка: {current_bid + 100} ⭐",
+                callback_data=f"bid_{auction_id}_{current_bid + 100}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=f"💰 Ставка: {current_bid + 500} ⭐",
+                callback_data=f"bid_{auction_id}_{current_bid + 500}"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=f"💰 Ставка: {current_bid + 1000} ⭐",
+                callback_data=f"bid_{auction_id}_{current_bid + 1000}"
+            )
+        ],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+    ])
+    return keyboard
+
 def get_admin_menu():
     """Админ меню"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📖 Справка (/ahelp)", callback_data="admin_help")],
         [InlineKeyboardButton(text="👤 Управление пользователями", callback_data="admin_users")],
         [InlineKeyboardButton(text="💰 Выдать звезды", callback_data="admin_give_stars")],
         [InlineKeyboardButton(text="🌾 Выдать ферму", callback_data="admin_give_farm")],
@@ -111,29 +137,3 @@ def get_nft_select_keyboard():
         InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back")
     ])
     return keyboard
-
-def get_auction_keyboard(auction_id: int, current_bid: int):
-    """Клавиатура для аукциона"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text=f"💰 Ставка: {current_bid + 100} ⭐",
-                callback_data=f"bid_{auction_id}_{current_bid + 100}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=f"💰 Ставка: {current_bid + 500} ⭐",
-                callback_data=f"bid_{auction_id}_{current_bid + 500}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=f"💰 Ставка: {current_bid + 1000} ⭐",
-                callback_data=f"bid_{auction_id}_{current_bid + 1000}"
-            )
-        ],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
-    ])
-    return keyboard
-
